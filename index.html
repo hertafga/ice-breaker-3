@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>DataQuest – Puzzle Analitika Data (Global Leaderboard + Total)</title>
+<title>DataQuest – Puzzle Analitika Data (Leaderboard Total Detik)</title>
 <style>
   :root{--ink:#111;--muted:#666;--bg:#fff;--ok:#2aa866;--bad:#d43d3d;--box:#222;--card:#fff;}
   *{box-sizing:border-box}
@@ -41,8 +41,9 @@
   .side h4{margin:0 0 8px 0}
   .help{font-size:13px;color:var(--muted)}
   .explain{margin-top:10px;font-size:14px;border-top:1px dashed #ccc;padding-top:10px;display:none}
+  /* Modal Leaderboard */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:16px;z-index:1000}
-  .modal .box{background:#fff;border:2px solid var(--box);border-radius:14px;max-width:760px;width:100%;padding:16px}
+  .modal .box{background:#fff;border:2px solid var(--box);border-radius:14px;max-width:560px;width:100%;padding:16px}
   .modal h3{margin:0 0 8px 0}
   table.lb{width:100%;border-collapse:collapse;margin-top:8px}
   table.lb th, table.lb td{border:1px solid #ddd;padding:8px 10px;text-align:left}
@@ -50,7 +51,6 @@
   .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
   .dim{opacity:.6;pointer-events:none}
   .err{color:var(--bad);font-weight:700}
-  .secTitle{margin:14px 0 6px;font-size:16px}
 </style>
 </head>
 <body>
@@ -82,31 +82,18 @@
   </div>
 </div>
 
-<!-- Modal Leaderboard -->
+<!-- Modal Leaderboard (Total detik) -->
 <div class="modal" id="lbModal" role="dialog" aria-modal="true" aria-labelledby="lbTitle">
   <div class="box">
-    <h3 id="lbTitle">Leaderboard</h3>
-    <div id="lbYourTime" style="margin-bottom:6px;font-weight:700"></div>
+    <h3 id="lbTitle">Leaderboard Total 3 Level</h3>
+    <div id="lbYourTotal" style="margin-bottom:6px;font-weight:700"></div>
     <div id="lbErr" class="err" style="display:none"></div>
-
-    <div class="secTitle" id="secLevelTitle">Peringkat Level Ini</div>
-    <table class="lb" id="lbTableLevel">
-      <thead><tr><th>#</th><th>Nama</th><th>Waktu</th><th>Tanggal</th></tr></thead>
+    <table class="lb" id="lbTableTotal">
+      <thead><tr><th>#</th><th>Nama</th><th>Total (detik)</th></tr></thead>
       <tbody></tbody>
     </table>
-
-    <div id="totalSection" style="display:none">
-      <div class="secTitle">Leaderboard Total 3 Level</div>
-      <div id="lbYourTotal" style="margin-bottom:6px;font-weight:700"></div>
-      <table class="lb" id="lbTableTotal">
-        <thead><tr><th>#</th><th>Nama</th><th>Total Waktu</th><th>Tanggal</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
     <div class="actions">
       <button id="lbClose">Tutup</button>
-      <button id="lbNext">Next Level ▶</button>
     </div>
   </div>
 </div>
@@ -188,7 +175,7 @@ const levels = [
   }
 ];
 
-/* =================== Render & state =================== */
+/* =============== Elemen & State =============== */
 const zonesEl = document.getElementById("zones");
 const poolEl  = document.getElementById("pool");
 const titleEl = document.getElementById("levelTitle");
@@ -201,18 +188,13 @@ const btnNext  = document.getElementById("next");
 const nameInput = document.getElementById("name");
 const timerEl = document.getElementById("timer");
 
-/* Leaderboard modal elements */
+/* Modal Leaderboard Total */
 const lbModal = document.getElementById("lbModal");
 const lbTitle = document.getElementById("lbTitle");
-const lbYourTime = document.getElementById("lbYourTime");
-const lbTableLevelBody = document.getElementById("lbTableLevel").querySelector("tbody");
-const lbClose = document.getElementById("lbClose");
-const lbNext = document.getElementById("lbNext");
-const lbErr = document.getElementById("lbErr");
-const totalSection = document.getElementById("totalSection");
 const lbYourTotal = document.getElementById("lbYourTotal");
+const lbErr = document.getElementById("lbErr");
 const lbTableTotalBody = document.getElementById("lbTableTotal").querySelector("tbody");
-const secLevelTitle = document.getElementById("secLevelTitle");
+const lbClose = document.getElementById("lbClose");
 
 let levelIndex = 0;
 let checked = false;          // warna hanya setelah Check
@@ -221,6 +203,7 @@ let timerId = null;
 const timesMs = [null,null,null]; // waktu tiap level
 let feedbackTimer = null;     // timer menghilangkan warna otomatis
 
+/* =============== Util & Render =============== */
 function fmtTime(ms){ const s=Math.floor(ms/1000); const m=Math.floor(s/60); const r=s%60; return `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`; }
 function startTimerIfNeeded(){
   if(levelStart===null){
@@ -261,11 +244,10 @@ function renderLevel(idx){
   enableDrag();
 }
 
-/* =================== Helpers (cek & feedback) =================== */
 function clearVisualMarks(){ document.querySelectorAll(".card").forEach(c=> c.classList.remove("ok","bad")); }
 function clearFeedback(){
   checked = false;
-  cancelFeedbackTimer();      // matikan timer hilang warna jika ada
+  cancelFeedbackTimer();
   clearVisualMarks();
   progressEl.textContent = "Belum dicek";
   statusEl.textContent = "Seret kartu ke kategori yang tepat, lalu tekan Check.";
@@ -300,7 +282,7 @@ function applyCheckColors(){
   }, 1000);
 }
 
-/* =================== Drag & drop =================== */
+/* =============== Drag & Drop (Pointer Events) =============== */
 function enableDrag(){
   const cards = [...document.querySelectorAll(".card")];
   cards.forEach(card=>{
@@ -322,7 +304,6 @@ function enableDrag(){
       card.setPointerCapture(e.pointerId);
       e.preventDefault();
 
-      // Jika sudah di-Check lalu user geser kartu, hapus feedback & timer warna
       if (checked) clearFeedback();
     };
 
@@ -365,26 +346,7 @@ function enableDrag(){
   });
 }
 
-/* =================== Supabase Leaderboard =================== */
-/* per-level */
-async function submitScore(levelIdx, name, timeMs){
-  const cleanName = (name || "Anon").trim().slice(0,30);
-  const { error } = await supabase
-    .from("dq_leaderboard")
-    .insert({ level_idx: levelIdx, name: cleanName, time_ms: timeMs });
-  if(error) throw error;
-}
-async function fetchLeaderboard(levelIdx, limit=10){
-  const { data, error } = await supabase
-    .from("dq_leaderboard")
-    .select("name,time_ms,created_at")
-    .eq("level_idx", levelIdx)
-    .order("time_ms", { ascending: true })
-    .limit(limit);
-  if(error) throw error;
-  return data || [];
-}
-/* total 3 level */
+/* =============== Supabase (Leaderboard Total) =============== */
 async function submitTotalScore(name, totalMs){
   const cleanName = (name || "Anon").trim().slice(0,30);
   const { error } = await supabase
@@ -401,45 +363,26 @@ async function fetchTotalLeaderboard(limit=10){
   if(error) throw error;
   return data || [];
 }
-
-function fillLevelTable(rows){
-  lbTableLevelBody.innerHTML = "";
-  rows.forEach((row,i)=>{
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${i+1}</td><td>${row.name}</td><td>${fmtTime(row.time_ms)}</td><td>${new Date(row.created_at).toLocaleDateString()}</td>`;
-    lbTableLevelBody.appendChild(tr);
-  });
-}
 function fillTotalTable(rows){
   lbTableTotalBody.innerHTML = "";
   rows.forEach((row,i)=>{
+    const secs = Math.round(row.total_ms / 1000);
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${i+1}</td><td>${row.name}</td><td>${fmtTime(row.total_ms)}</td><td>${new Date(row.created_at).toLocaleDateString()}</td>`;
+    tr.innerHTML = `<td>${i+1}</td><td>${row.name}</td><td>${secs}</td>`;
     lbTableTotalBody.appendChild(tr);
   });
 }
-
-async function showLeaderboardModal({levelIdx, yourLevelMs, showTotal=false, yourTotalMs=null}){
-  lbTitle.textContent = `Leaderboard – ${levels[levelIdx].title}`;
-  document.getElementById("secLevelTitle").textContent = "Peringkat Level Ini";
-  lbYourTime.textContent = `Waktu kamu (level ini): ${fmtTime(yourLevelMs)}`;
+async function showTotalLeaderboardModal(yourTotalMs){
+  lbTitle.textContent = "Leaderboard Total 3 Level";
+  lbYourTotal.textContent = `Total waktu kamu: ${Math.round(yourTotalMs/1000)} detik`;
   lbErr.style.display = "none";
-  lbTableLevelBody.innerHTML = "";
-  totalSection.style.display = showTotal ? "block" : "none";
-  if(showTotal){
-    lbYourTotal.textContent = `Total waktu 3 level: ${fmtTime(yourTotalMs)}`;
-    lbTableTotalBody.innerHTML = "";
-  }
+  lbTableTotalBody.innerHTML = "";
   lbModal.style.display = "flex";
   lbModal.querySelector(".box").classList.add("dim");
 
   try{
-    const [rowsLevel, rowsTotal] = await Promise.all([
-      fetchLeaderboard(levelIdx, 10),
-      showTotal ? fetchTotalLeaderboard(10) : Promise.resolve(null)
-    ]);
-    fillLevelTable(rowsLevel);
-    if(showTotal && rowsTotal) fillTotalTable(rowsTotal);
+    const rows = await fetchTotalLeaderboard(10);
+    fillTotalTable(rows);
   }catch(err){
     lbErr.textContent = "Gagal memuat leaderboard: " + err.message;
     lbErr.style.display = "block";
@@ -448,7 +391,7 @@ async function showLeaderboardModal({levelIdx, yourLevelMs, showTotal=false, you
   }
 }
 
-/* =================== Buttons =================== */
+/* =============== Tombol =============== */
 btnCheck.addEventListener("click", async ()=>{
   if(!nameInput.value.trim()){
     nameInput.focus();
@@ -470,28 +413,15 @@ btnCheck.addEventListener("click", async ()=>{
     const timeMs = Date.now() - levelStart;
     timesMs[levelIndex] = timeMs;
 
-    try{
-      // simpan skor level ini
-      await submitScore(levelIndex, nameInput.value, timeMs);
-
-      // ❗️Tampilkan leaderboard HANYA saat tahap 3 (level terakhir)
-      if(levelIndex === levels.length - 1){
-        const totalMs = timesMs.reduce((a,b)=> a + (b||0), 0);
-        try{ await submitTotalScore(nameInput.value, totalMs); }catch(err){ console.warn("Gagal simpan total:", err.message); }
-        await showLeaderboardModal({levelIdx, yourLevelMs: timeMs, showTotal:true, yourTotalMs: totalMs});
+    // ❗️Hanya saat selesai Level 3: hitung total, simpan, lalu tampilkan leaderboard total (detik)
+    if(levelIndex === levels.length - 1){
+      const totalMs = timesMs.reduce((a,b)=> a + (b||0), 0);
+      try{
+        await submitTotalScore(nameInput.value, totalMs);
+      }catch(err){
+        console.warn("Gagal simpan total:", err.message);
       }
-    }catch(err){
-      // Jika gagal menyimpan, tetap tampilkan modal hanya di level terakhir
-      if(levelIndex === levels.length - 1){
-        await showLeaderboardModal({
-          levelIdx,
-          yourLevelMs: timeMs,
-          showTotal:true,
-          yourTotalMs: timesMs.reduce((a,b)=> a + (b||0), 0)
-        });
-        lbErr.textContent = "Skor tidak tersimpan: " + err.message;
-        lbErr.style.display = "block";
-      }
+      await showTotalLeaderboardModal(totalMs);
     }
   }else if(allPlaced()){
     statusEl.textContent = "Masih ada yang salah (merah). Perbaiki lalu tekan Check lagi.";
@@ -508,11 +438,8 @@ btnNext.addEventListener("click", ()=>{
   }
 });
 lbClose.addEventListener("click", ()=> lbModal.style.display = "none");
-lbNext.addEventListener("click", ()=>{
-  lbModal.style.display = "none";
-  // Tidak ada next di level terakhir
-});
 
+/* Init */
 renderLevel(levelIndex);
 </script>
 </body>
