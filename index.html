@@ -421,7 +421,7 @@ function fillTotalTable(rows){
 
 async function showLeaderboardModal({levelIdx, yourLevelMs, showTotal=false, yourTotalMs=null}){
   lbTitle.textContent = `Leaderboard – ${levels[levelIdx].title}`;
-  secLevelTitle.textContent = "Peringkat Level Ini";
+  document.getElementById("secLevelTitle").textContent = "Peringkat Level Ini";
   lbYourTime.textContent = `Waktu kamu (level ini): ${fmtTime(yourLevelMs)}`;
   lbErr.style.display = "none";
   lbTableLevelBody.innerHTML = "";
@@ -460,8 +460,10 @@ btnCheck.addEventListener("click", async ()=>{
   applyCheckColors();
 
   if(allPlaced() && allCorrect()){
-    statusEl.textContent = "Semua benar! Lanjut ke Next Level.";
-    btnNext.disabled = false;
+    statusEl.textContent = (levelIndex === levels.length - 1)
+      ? "Semua benar! Kamu menuntaskan seluruh level."
+      : "Benar! Lanjutkan dengan Next Level ▶";
+    btnNext.disabled = (levelIndex === levels.length - 1);
     explainEl.style.display = "block";
 
     stopTimer();
@@ -469,19 +471,27 @@ btnCheck.addEventListener("click", async ()=>{
     timesMs[levelIndex] = timeMs;
 
     try{
+      // simpan skor level ini
       await submitScore(levelIndex, nameInput.value, timeMs);
 
+      // ❗️Tampilkan leaderboard HANYA saat tahap 3 (level terakhir)
       if(levelIndex === levels.length - 1){
         const totalMs = timesMs.reduce((a,b)=> a + (b||0), 0);
         try{ await submitTotalScore(nameInput.value, totalMs); }catch(err){ console.warn("Gagal simpan total:", err.message); }
         await showLeaderboardModal({levelIdx, yourLevelMs: timeMs, showTotal:true, yourTotalMs: totalMs});
-      }else{
-        await showLeaderboardModal({levelIdx, yourLevelMs: timeMs, showTotal:false});
       }
     }catch(err){
-      await showLeaderboardModal({levelIdx, yourLevelMs: timeMs, showTotal: levelIndex===levels.length-1, yourTotalMs: timesMs.reduce((a,b)=>a+(b||0),0)});
-      lbErr.textContent = "Skor tidak tersimpan: " + err.message;
-      lbErr.style.display = "block";
+      // Jika gagal menyimpan, tetap tampilkan modal hanya di level terakhir
+      if(levelIndex === levels.length - 1){
+        await showLeaderboardModal({
+          levelIdx,
+          yourLevelMs: timeMs,
+          showTotal:true,
+          yourTotalMs: timesMs.reduce((a,b)=> a + (b||0), 0)
+        });
+        lbErr.textContent = "Skor tidak tersimpan: " + err.message;
+        lbErr.style.display = "block";
+      }
     }
   }else if(allPlaced()){
     statusEl.textContent = "Masih ada yang salah (merah). Perbaiki lalu tekan Check lagi.";
@@ -495,24 +505,14 @@ btnNext.addEventListener("click", ()=>{
   if(levelIndex < levels.length-1){
     levelIndex++;
     renderLevel(levelIndex);
-  }else{
-    statusEl.textContent = "🎉 Selesai! Kamu menuntaskan semua level.";
-    btnNext.disabled = true;
   }
 });
 lbClose.addEventListener("click", ()=> lbModal.style.display = "none");
 lbNext.addEventListener("click", ()=>{
   lbModal.style.display = "none";
-  if(levelIndex < levels.length-1){
-    levelIndex++;
-    renderLevel(levelIndex);
-  }else{
-    statusEl.textContent = "🎉 Selesai! Kamu menuntaskan semua level.";
-    btnNext.disabled = true;
-  }
+  // Tidak ada next di level terakhir
 });
 
-/* Init render */
 renderLevel(levelIndex);
 </script>
 </body>
