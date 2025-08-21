@@ -27,22 +27,8 @@
   }
   .slot.active{outline:3px solid var(--green)}
   .msg{margin-top:12px;font-weight:800}
-  /* scratchpad */
-  .scratch{margin-top:14px}
-  .digits{display:flex;gap:8px;flex-wrap:wrap}
-  .dcell{
-    width:42px;height:42px;border:2px solid var(--border);border-radius:10px;background:#fff;display:grid;place-items:center;
-    font-size:20px;font-weight:800;user-select:none;position:relative;cursor:pointer
-  }
-  .dcell.cross::before, .dcell.cross::after{
-    content:""; position:absolute; left:6px; right:6px; height:3px; background:var(--red);
-    transform:rotate(45deg); top:20px; border-radius:2px
-  }
-  .dcell.cross::after{ transform:rotate(-45deg) }
   /* data panel */
-  .data{
-    border:2px solid var(--border);border-radius:12px;padding:14px
-  }
+  .data{border:2px solid var(--border);border-radius:12px;padding:14px}
   table{border-collapse:collapse;width:100%;margin-top:8px}
   th,td{border:1px solid #ddd;padding:8px 10px;text-align:right}
   th{background:#fafafa;text-align:center}
@@ -50,8 +36,6 @@
   .clues{margin-top:12px}
   .clues li{margin:6px 0}
   .explain{margin-top:10px;font-size:14px;display:none;border-top:1px dashed #ccc;padding-top:10px}
-  .show{display:inline-block;margin-top:10px;font-size:14px;background:#f6f6f6}
-  /* responsif */
   @media (max-width:950px){ .board{grid-template-columns: 1fr} }
   /* input numerik tak terlihat (untuk memunculkan keyboard HP) */
   #numInput{ position:absolute; left:8px; top:8px; width:1px; height:1px; opacity:0; border:0; padding:0; background:transparent; }
@@ -86,11 +70,6 @@
       </div>
 
       <div class="msg" id="msg"></div>
-
-      <div class="scratch">
-        <div style="font-size:14px;margin-bottom:6px">Scratchpad (ketuk untuk mencoret):</div>
-        <div class="digits" id="digits"></div>
-      </div>
     </div>
 
     <!-- DATA + CLUES -->
@@ -105,20 +84,17 @@
 
       <ul class="clues">
         <li><strong>Digit-1</strong>: modus dari <em>digit terakhir</em> pada kolom <strong>Orders</strong>.</li>
-        <li><strong>Digit-2</strong>: banyaknya hari dengan <strong>conversion rate ≥ 6%</strong> (Orders / Visits).</li>
-        <li><strong>Digit-3</strong>: banyaknya hari dengan <strong>Returns &gt; 0</strong>.</li>
+        <li><strong>Digit-2</strong>: jumlah hari dengan <strong>conversion rate ≥ 6%</strong> (Orders / Visits).</li>
+        <li><strong>Digit-3</strong>: jumlah hari dengan <strong>Returns &gt; 0</strong>.</li>
       </ul>
 
-      <button class="show" id="toggleExplain">Tampilkan penjelasan rumus</button>
       <div class="explain" id="explain"></div>
     </div>
   </div>
 </div>
 
 <script>
-/* ========= DATASET =========
-   Kamu bisa mengubah data; solusi dihitung otomatis dari data di bawah.
-*/
+/* ========= DATASET ========= */
 const DATA = [
   { day:"Sen", visits:210, orders:13, returns:1, revenue:950 },
   { day:"Sel", visits:420, orders:23, returns:0, revenue:1600 },
@@ -128,8 +104,6 @@ const DATA = [
   { day:"Sab", visits:520, orders:33, returns:0, revenue:2400 },
   { day:"Min", visits:260, orders:13, returns:0, revenue:1100 },
 ];
-// Dengan data ini: Digit1=3 (modus last digit Orders), Digit2=5 (hari conv ≥6%), Digit3=2 (hari Returns>0)
-
 /* ========= RENDER TABEL ========= */
 const tbody = document.querySelector("#tbl tbody");
 DATA.forEach(r=>{
@@ -146,16 +120,16 @@ function mode(arr){
   return bestVal;
 }
 function conversionRate(orders, visits){ return visits ? orders/visits : 0; }
+function fmtPct(x){ return (x*100).toFixed(2)+"%"; }
 
 /* ========= HITUNG SOLUSI ========= */
-const DIGIT1 = mode(DATA.map(r=> lastDigit(r.orders)));                         // modus last digit Orders
-const DIGIT2 = DATA.filter(r=> conversionRate(r.orders, r.visits) >= 0.06).length;  // jumlah hari CR >= 6%
-const DIGIT3 = DATA.filter(r=> r.returns > 0).length;                           // jumlah hari returns > 0
+const DIGIT1 = mode(DATA.map(r=> lastDigit(r.orders)));
+const DIGIT2 = DATA.filter(r=> conversionRate(r.orders, r.visits) >= 0.06).length;
+const DIGIT3 = DATA.filter(r=> r.returns > 0).length;
 const SOLUTION = [DIGIT1, DIGIT2, DIGIT3];
 
-/* ========= PENJELASAN ========= */
+/* ========= PENJELASAN (disembunyikan sampai jawaban benar) ========= */
 const explain = document.getElementById("explain");
-function fmtPct(x){ return (x*100).toFixed(2)+"%"; }
 function buildExplain(){
   const crList = DATA.map(r=> `${r.day}: ${r.orders}/${r.visits} = ${fmtPct(conversionRate(r.orders,r.visits))}`).join("<br>");
   explain.innerHTML = `
@@ -167,12 +141,7 @@ function buildExplain(){
     } → jumlah = <strong>${DIGIT3}</strong></div>
   `;
 }
-buildExplain();
-document.getElementById("toggleExplain").addEventListener("click", ()=>{
-  const s = getComputedStyle(explain).display;
-  explain.style.display = (s==="none"?"block":"none");
-  document.getElementById("toggleExplain").textContent = (s==="none"?"Sembunyikan penjelasan":"Tampilkan penjelasan rumus");
-});
+buildExplain(); // isi konten, tapi tetap hidden (display:none)
 
 /* ========= LOCK INPUT (keyboard sistem HP) ========= */
 const slots = [...document.querySelectorAll(".slot")];
@@ -227,15 +196,6 @@ document.addEventListener('keydown', (e)=>{
   else if(e.key==='ArrowRight'){ setActive(Math.min(2, active+1)); }
 });
 
-/* ========= SCRATCHPAD 0–9 ========= */
-const digitsEl = document.getElementById("digits");
-for(let d=0; d<=9; d++){
-  const b = document.createElement("div");
-  b.className="dcell"; b.textContent=String(d);
-  b.addEventListener('pointerup', ()=> b.classList.toggle('cross'), {passive:true});
-  digitsEl.appendChild(b);
-}
-
 /* ========= BUTTONS ========= */
 document.getElementById('check').addEventListener('click', ()=>{
   if(code.some(v=>v==="")){
@@ -246,14 +206,20 @@ document.getElementById('check').addEventListener('click', ()=>{
   const guess = code.map(x=>parseInt(x,10));
   const ok = guess.every((v,i)=> v===SOLUTION[i]);
   msg.style.color = ok ? '#2AA866' : '#D43D3D';
-  msg.textContent = ok ? `Benar! Kodenya ${guess.join('')}.`
-                       : `Belum benar. Coba lagi! (Hint: baca ulang 3 clue di sebelah)`;
+  msg.textContent = ok ? `Benar! Kodenya ${guess.join('')}.` : `Belum benar. Coba lagi!`;
+
+  // Tampilkan penjelasan hanya jika benar
+  if(ok){
+    explain.style.display = "block";
+    // opsional: scroll ke penjelasan
+    explain.scrollIntoView({behavior:"smooth", block:"start"});
+  }
 });
 document.getElementById('reset').addEventListener('click', ()=>{
-  document.querySelectorAll('.dcell.cross').forEach(el=> el.classList.remove('cross'));
   code.fill(""); drawCode();
   setActive(-1);
   msg.textContent = "";
+  explain.style.display = "none"; // sembunyikan lagi saat reset
 });
 </script>
 </body>
