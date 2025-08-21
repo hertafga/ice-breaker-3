@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>DataQuest – Puzzle Analitika Data (Global Leaderboard)</title>
+<title>DataQuest – Puzzle Analitika Data (Global Leaderboard + Total)</title>
 <style>
   :root{--ink:#111;--muted:#666;--bg:#fff;--ok:#2aa866;--bad:#d43d3d;--box:#222;--card:#fff;}
   *{box-sizing:border-box}
@@ -21,7 +21,6 @@
   .pill{font-size:12px;padding:4px 8px;border:1px solid #ddd;border-radius:999px;background:#fafafa}
   .board{display:grid;grid-template-columns: 1fr 320px;gap:16px;align-items:start}
   @media (max-width:950px){ .board{grid-template-columns:1fr } }
-  /* Zones & pool */
   .zones{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px}
   @media (min-width:800px){ .zones{grid-template-columns:repeat(4,minmax(180px,1fr))} }
   .zone{
@@ -30,27 +29,20 @@
   }
   .zone h3{margin:0 0 8px 0;font-size:14px}
   .pool{border:2px dashed #bbb;border-radius:12px;padding:10px;min-height:120px;display:flex;flex-wrap:wrap;gap:8px}
-  /* Cards */
   .card{
     background:var(--card);border:2px solid var(--box);border-radius:10px;padding:10px;max-width:320px;
     box-shadow:0 1px 0 rgba(0,0,0,.06);font-size:14px;line-height:1.25;touch-action:none;user-select:none
   }
-  /* Warna hanya muncul saat Check */
   .card.ok{border-color:var(--ok)}
   .card.bad{border-color:var(--bad)}
   .ghost{opacity:.85;box-shadow:0 8px 16px rgba(0,0,0,.15)}
-  /* Side panel */
   .side{border:2px solid var(--box);border-radius:12px;padding:12px}
   .side h4{margin:0 0 8px 0}
   .help{font-size:13px;color:var(--muted)}
   .explain{margin-top:10px;font-size:14px;border-top:1px dashed #ccc;padding-top:10px;display:none}
   /* Modal Leaderboard */
-  .modal{
-    position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:16px;z-index:1000
-  }
-  .modal .box{
-    background:#fff;border:2px solid var(--box);border-radius:14px;max-width:560px;width:100%;padding:16px
-  }
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:16px;z-index:1000}
+  .modal .box{background:#fff;border:2px solid var(--box);border-radius:14px;max-width:760px;width:100%;padding:16px}
   .modal h3{margin:0 0 8px 0}
   table.lb{width:100%;border-collapse:collapse;margin-top:8px}
   table.lb th, table.lb td{border:1px solid #ddd;padding:8px 10px;text-align:left}
@@ -58,6 +50,7 @@
   .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
   .dim{opacity:.6;pointer-events:none}
   .err{color:var(--bad);font-weight:700}
+  .secTitle{margin:14px 0 6px;font-size:16px}
 </style>
 </head>
 <body>
@@ -95,10 +88,24 @@
     <h3 id="lbTitle">Leaderboard</h3>
     <div id="lbYourTime" style="margin-bottom:6px;font-weight:700"></div>
     <div id="lbErr" class="err" style="display:none"></div>
-    <table class="lb" id="lbTable">
+
+    <!-- Leaderboard untuk level saat ini -->
+    <div class="secTitle" id="secLevelTitle">Peringkat Level Ini</div>
+    <table class="lb" id="lbTableLevel">
       <thead><tr><th>#</th><th>Nama</th><th>Waktu</th><th>Tanggal</th></tr></thead>
       <tbody></tbody>
     </table>
+
+    <!-- Leaderboard total 3 level (muncul saat selesai level 3) -->
+    <div id="totalSection" style="display:none">
+      <div class="secTitle">Leaderboard Total 3 Level</div>
+      <div id="lbYourTotal" style="margin-bottom:6px;font-weight:700"></div>
+      <table class="lb" id="lbTableTotal">
+        <thead><tr><th>#</th><th>Nama</th><th>Total Waktu</th><th>Tanggal</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
     <div class="actions">
       <button id="lbClose">Tutup</button>
       <button id="lbNext">Next Level ▶</button>
@@ -108,7 +115,6 @@
 
 <!-- Supabase + Game logic -->
 <script type="module">
-/* =================== Supabase Client =================== */
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 /* >>>>>> GANTI DUA BARIS INI DENGAN PUNYAMU <<<<<< */
@@ -128,10 +134,8 @@ const levels = [
       {key:"know", label:"Pengetahuan"},
       {key:"policy", label:"Kebijakan"},
     ],
-    explain: `
-      <b>Data</b> = fakta/angka mentah. <b>Informasi</b> = data yang diproses & terstruktur.
-      <b>Pengetahuan</b> = pemahaman/pola dari informasi. <b>Kebijakan</b> = aturan/tindakan yang diambil dari pengetahuan.
-    `,
+    explain: `<b>Data</b> = fakta/angka mentah. <b>Informasi</b> = data yang diproses & terstruktur.
+              <b>Pengetahuan</b> = pemahaman/pola dari informasi. <b>Kebijakan</b> = aturan/tindakan yang diambil dari pengetahuan.`,
     cards: [
       {t:"60, 70, 80, 85, 90, 95, 75, 65, 55, 100", k:"data"},
       {t:"Ringkasan penjualan mingguan toko online", k:"info"},
@@ -151,9 +155,7 @@ const levels = [
       {key:"velocity", label:"Velocity"},
       {key:"veracity", label:"Veracity"},
     ],
-    explain: `
-      <b>Volume</b>=jumlah sangat besar; <b>Variety</b>=beragam bentuk; <b>Velocity</b>=kecepatan aliran; <b>Veracity</b>=kualitas/ketepatan data.
-    `,
+    explain: `<b>Volume</b>=jumlah sangat besar; <b>Variety</b>=beragam bentuk; <b>Velocity</b>=kecepatan aliran; <b>Veracity</b>=kualitas/ketepatan data.`,
     cards: [
       {t:"Ribuan unit diproduksi per hari", k:"vol"},
       {t:"Data numerik (jumlah, suhu), teks (laporan), sensor (getaran)", k:"variety"},
@@ -173,10 +175,8 @@ const levels = [
       {key:"pred", label:"Predictive"},
       {key:"presc", label:"Prescriptive"},
     ],
-    explain: `
-      <b>Descriptive</b>=apa yang terjadi; <b>Diagnostic</b>=mengapa terjadi;
-      <b>Predictive</b>=apa yang akan terjadi; <b>Prescriptive</b>=apa tindakan terbaik.
-    `,
+    explain: `<b>Descriptive</b>=apa yang terjadi; <b>Diagnostic</b>=mengapa terjadi;
+              <b>Predictive</b>=apa yang akan terjadi; <b>Prescriptive</b>=apa tindakan terbaik.`,
     cards: [
       {t:"Laporan: penjualan 7 hari terakhir", k:"desc"},
       {t:"Analisis penyebab penjualan turun di hari Senin", k:"diag"},
@@ -207,22 +207,22 @@ const timerEl = document.getElementById("timer");
 const lbModal = document.getElementById("lbModal");
 const lbTitle = document.getElementById("lbTitle");
 const lbYourTime = document.getElementById("lbYourTime");
-const lbTableBody = document.getElementById("lbTable").querySelector("tbody");
+const lbTableLevelBody = document.getElementById("lbTableLevel").querySelector("tbody");
 const lbClose = document.getElementById("lbClose");
 const lbNext = document.getElementById("lbNext");
 const lbErr = document.getElementById("lbErr");
+const totalSection = document.getElementById("totalSection");
+const lbYourTotal = document.getElementById("lbYourTotal");
+const lbTableTotalBody = document.getElementById("lbTableTotal").querySelector("tbody");
+const secLevelTitle = document.getElementById("secLevelTitle");
 
 let levelIndex = 0;
-let checked = false; // warna hanya setelah Check
-let levelStart = null; // timestamp ms
+let checked = false;          // warna hanya setelah Check
+let levelStart = null;        // timestamp ms
 let timerId = null;
+const timesMs = [null,null,null]; // simpan waktu tiap level
 
-function fmtTime(ms){
-  const s = Math.floor(ms/1000);
-  const m = Math.floor(s/60);
-  const r = s%60;
-  return `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`;
-}
+function fmtTime(ms){ const s=Math.floor(ms/1000); const m=Math.floor(s/60); const r=s%60; return `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`; }
 function startTimerIfNeeded(){
   if(levelStart===null){
     levelStart = Date.now();
@@ -272,9 +272,7 @@ function clearFeedback(){
   explainEl.style.display = "none";
   btnNext.disabled = true;
 }
-function allPlaced(){
-  return [...document.querySelectorAll(".card")].every(c=> c.parentElement && !c.parentElement.classList.contains("pool"));
-}
+function allPlaced(){ return [...document.querySelectorAll(".card")].every(c=> c.parentElement && !c.parentElement.classList.contains("pool")); }
 function allCorrect(){
   return [...document.querySelectorAll(".card")].every(c=>{
     const p=c.parentElement; return p.classList.contains("zone") && c.dataset.key===p.dataset.key;
@@ -360,6 +358,7 @@ function enableDrag(){
 }
 
 /* =================== Supabase Leaderboard =================== */
+/* per-level */
 async function submitScore(levelIdx, name, timeMs){
   const cleanName = (name || "Anon").trim().slice(0,30);
   const { error } = await supabase
@@ -377,31 +376,66 @@ async function fetchLeaderboard(levelIdx, limit=10){
   if(error) throw error;
   return data || [];
 }
-function fillLeaderboardTable(rows){
-  lbTableBody.innerHTML = "";
-  rows.forEach((row, i)=>{
+/* total 3 level */
+async function submitTotalScore(name, totalMs){
+  const cleanName = (name || "Anon").trim().slice(0,30);
+  const { error } = await supabase
+    .from("dq_leaderboard_total")
+    .insert({ name: cleanName, total_ms: totalMs });
+  if(error) throw error;
+}
+async function fetchTotalLeaderboard(limit=10){
+  const { data, error } = await supabase
+    .from("dq_leaderboard_total")
+    .select("name,total_ms,created_at")
+    .order("total_ms", { ascending: true })
+    .limit(limit);
+  if(error) throw error;
+  return data || [];
+}
+
+function fillLevelTable(rows){
+  lbTableLevelBody.innerHTML = "";
+  rows.forEach((row,i)=>{
     const tr = document.createElement("tr");
-    const c1 = document.createElement("td"); c1.textContent = String(i+1);
-    const c2 = document.createElement("td"); c2.textContent = row.name;
-    const c3 = document.createElement("td"); c3.textContent = fmtTime(row.time_ms);
-    const c4 = document.createElement("td"); c4.textContent = new Date(row.created_at).toLocaleDateString();
-    tr.append(c1,c2,c3,c4);
-    lbTableBody.appendChild(tr);
+    tr.innerHTML = `<td>${i+1}</td><td>${row.name}</td><td>${fmtTime(row.time_ms)}</td><td>${new Date(row.created_at).toLocaleDateString()}</td>`;
+    lbTableLevelBody.appendChild(tr);
   });
 }
-async function showLeaderboardModal(levelIdx, yourTimeMs){
-  lbTitle.textContent = `Leaderboard – ${levels[levelIdx].title}`;
-  lbYourTime.textContent = `Waktu kamu: ${fmtTime(yourTimeMs)}`;
-  lbErr.style.display = "none";
-  lbTableBody.innerHTML = "";
-  lbModal.style.display = "flex";
+function fillTotalTable(rows){
+  lbTableTotalBody.innerHTML = "";
+  rows.forEach((row,i)=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${i+1}</td><td>${row.name}</td><td>${fmtTime(row.total_ms)}</td><td>${new Date(row.created_at).toLocaleDateString()}</td>`;
+    lbTableTotalBody.appendChild(tr);
+  });
+}
 
-  // loading state
+/* Modal render:
+   - Selalu tampilkan leaderboard level saat ini
+   - Jika showTotal=true (selesai level 3), tampilkan juga leaderboard total
+*/
+async function showLeaderboardModal({levelIdx, yourLevelMs, showTotal=false, yourTotalMs=null}){
+  lbTitle.textContent = `Leaderboard – ${levels[levelIdx].title}`;
+  secLevelTitle.textContent = "Peringkat Level Ini";
+  lbYourTime.textContent = `Waktu kamu (level ini): ${fmtTime(yourLevelMs)}`;
+  lbErr.style.display = "none";
+  lbTableLevelBody.innerHTML = "";
+  totalSection.style.display = showTotal ? "block" : "none";
+  if(showTotal){
+    lbYourTotal.textContent = `Total waktu 3 level: ${fmtTime(yourTotalMs)}`;
+    lbTableTotalBody.innerHTML = "";
+  }
+  lbModal.style.display = "flex";
   lbModal.querySelector(".box").classList.add("dim");
 
   try{
-    const rows = await fetchLeaderboard(levelIdx, 10);
-    fillLeaderboardTable(rows);
+    const [rowsLevel, rowsTotal] = await Promise.all([
+      fetchLeaderboard(levelIdx, 10),
+      showTotal ? fetchTotalLeaderboard(10) : Promise.resolve(null)
+    ]);
+    fillLevelTable(rowsLevel);
+    if(showTotal && rowsTotal) fillTotalTable(rowsTotal);
   }catch(err){
     lbErr.textContent = "Gagal memuat leaderboard: " + err.message;
     lbErr.style.display = "block";
@@ -428,14 +462,29 @@ btnCheck.addEventListener("click", async ()=>{
 
     stopTimer();
     const timeMs = Date.now() - levelStart;
+    timesMs[levelIndex] = timeMs;
 
-    // simpan ke Supabase dan tampilkan modal leaderboard
     try{
+      // simpan skor level ini
       await submitScore(levelIndex, nameInput.value, timeMs);
-      await showLeaderboardModal(levelIndex, timeMs);
+
+      // Jika ini level terakhir, hitung total & simpan + tampilkan leaderboard total
+      if(levelIndex === levels.length - 1){
+        const totalMs = timesMs.reduce((a,b)=> a + (b||0), 0);
+        try{
+          await submitTotalScore(nameInput.value, totalMs);
+        }catch(err){
+          // lanjut walau gagal simpan total
+          console.warn("Gagal simpan total:", err.message);
+        }
+        await showLeaderboardModal({levelIdx, yourLevelMs: timeMs, showTotal:true, yourTotalMs: totalMs});
+      }else{
+        // tampilkan leaderboard level saja
+        await showLeaderboardModal({levelIdx, yourLevelMs: timeMs, showTotal:false});
+      }
     }catch(err){
-      // fallback: tampilkan modal dengan error
-      await showLeaderboardModal(levelIndex, timeMs);
+      // tetap tampilkan modal meski insert gagal
+      await showLeaderboardModal({levelIdx, yourLevelMs: timeMs, showTotal: levelIndex===levels.length-1, yourTotalMs: timesMs.reduce((a,b)=>a+(b||0),0)});
       lbErr.textContent = "Skor tidak tersimpan: " + err.message;
       lbErr.style.display = "block";
     }
@@ -446,8 +495,9 @@ btnCheck.addEventListener("click", async ()=>{
   }
 });
 
-btnReset.addEventListener("click", ()=>{ renderLevel(levelIndex); });
-
+btnReset.addEventListener("click", ()=>{
+  renderLevel(levelIndex);
+});
 btnNext.addEventListener("click", ()=>{
   if(levelIndex < levels.length-1){
     levelIndex++;
@@ -457,7 +507,6 @@ btnNext.addEventListener("click", ()=>{
     btnNext.disabled = true;
   }
 });
-
 lbClose.addEventListener("click", ()=> lbModal.style.display = "none");
 lbNext.addEventListener("click", ()=>{
   lbModal.style.display = "none";
