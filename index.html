@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DataQuest – Puzzle Analitika Data</title>
 <style>
-  :root{--ink:#111;--muted:#666;--bg:#fff;--ok:#2aa866;--bad:#d43d3d;--box:#222;--card:#fff;--accent:#f5c82d;}
+  :root{--ink:#111;--muted:#666;--bg:#fff;--ok:#2aa866;--bad:#d43d3d;--box:#222;--card:#fff;}
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
   header{display:flex;gap:10px;justify-content:flex-end;padding:12px}
@@ -19,7 +19,7 @@
   .hud{display:flex;gap:10px;align-items:center;margin:6px 0 12px}
   .pill{font-size:12px;padding:4px 8px;border:1px solid #ddd;border-radius:999px;background:#fafafa}
   .board{display:grid;grid-template-columns: 1fr 320px;gap:16px;align-items:start}
-  @media (max-width:950px){ .board{grid-template-columns:1fr} }
+  @media (max-width:950px){ .board{grid-template-columns:1fr } }
   /* Zones & pool */
   .zones{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px}
   @media (min-width:800px){ .zones{grid-template-columns:repeat(4,minmax(180px,1fr))} }
@@ -34,6 +34,7 @@
     background:var(--card);border:2px solid var(--box);border-radius:10px;padding:10px;max-width:320px;
     box-shadow:0 1px 0 rgba(0,0,0,.06);font-size:14px;line-height:1.25;touch-action:none;user-select:none
   }
+  /* Warna hanya muncul saat Check */
   .card.ok{border-color:var(--ok)}
   .card.bad{border-color:var(--bad)}
   .ghost{opacity:.85;box-shadow:0 8px 16px rgba(0,0,0,.15)}
@@ -58,8 +59,8 @@
   <div class="subtitle" id="levelTitle"></div>
 
   <div class="hud">
-    <span class="pill" id="progress">0 benar</span>
-    <span class="pill" id="status">Seret kartu ke kategori yang tepat.</span>
+    <span class="pill" id="progress">Belum dicek</span>
+    <span class="pill" id="status">Seret kartu ke kategori yang tepat, lalu tekan Check.</span>
   </div>
 
   <div class="board" id="game">
@@ -74,10 +75,10 @@
 </div>
 
 <script>
-/* ---------- Level data (berdasarkan materi kuliah) ---------- */
+/* ---------- Level data ---------- */
 const levels = [
   {
-    title: "Level 1 — Susun Tingkatan: Data → Informasi → Pengetahuan → Kebijakan",
+    title: "Level 1 — Data → Informasi → Pengetahuan → Kebijakan",
     categories: [
       {key:"data", label:"Data"},
       {key:"info", label:"Informasi"},
@@ -100,7 +101,7 @@ const levels = [
     ]
   },
   {
-    title: "Level 2 — Klasifikasi Big Data 4V (Volume, Variety, Velocity, Veracity)",
+    title: "Level 2 — Big Data 4V (Volume, Variety, Velocity, Veracity)",
     categories: [
       {key:"vol", label:"Volume"},
       {key:"variety", label:"Variety"},
@@ -122,7 +123,7 @@ const levels = [
     ]
   },
   {
-    title: "Level 3 — Cocokkan Jenis Analitik (D, Di, P, Pr)",
+    title: "Level 3 — Jenis Analitik (Descriptive, Diagnostic, Predictive, Prescriptive)",
     categories: [
       {key:"desc", label:"Descriptive"},
       {key:"diag", label:"Diagnostic"},
@@ -158,6 +159,8 @@ const btnReset = document.getElementById("reset");
 const btnNext  = document.getElementById("next");
 
 let levelIndex = 0;
+let checked = false; // <- hanya warna saat sudah ditekan Check
+
 function renderLevel(idx){
   const L = levels[idx];
   titleEl.textContent = L.title;
@@ -185,11 +188,46 @@ function renderLevel(idx){
   });
 
   btnNext.disabled = true;
-  updateProgress();
-  statusEl.textContent = "Seret kartu ke kategori yang tepat.";
+  clearFeedback();    // reset status/progress & hapus warna
   enableDrag();
 }
 renderLevel(levelIndex);
+
+/* ---------- Helpers (cek & feedback) ---------- */
+function clearVisualMarks(){
+  document.querySelectorAll(".card").forEach(c=> c.classList.remove("ok","bad"));
+}
+function clearFeedback(){
+  checked = false;
+  clearVisualMarks();
+  progressEl.textContent = "Belum dicek";
+  statusEl.textContent = "Seret kartu ke kategori yang tepat, lalu tekan Check.";
+  explainEl.style.display = "none";
+  btnNext.disabled = true;
+}
+
+function allPlaced(){
+  return [...document.querySelectorAll(".card")].every(c=> c.parentElement && !c.parentElement.classList.contains("pool"));
+}
+function allCorrect(){
+  return [...document.querySelectorAll(".card")].every(c=>{
+    const p=c.parentElement; return p.classList.contains("zone") && c.dataset.key===p.dataset.key;
+  });
+}
+function applyCheckColors(){
+  clearVisualMarks(); // bersihkan dulu
+  const cards = [...document.querySelectorAll(".card")];
+  let correctCount = 0;
+  cards.forEach(c=>{
+    const parent = c.parentElement;
+    if(parent.classList.contains("zone")){
+      const correct = c.dataset.key === parent.dataset.key;
+      c.classList.add(correct ? "ok" : "bad");
+      if(correct) correctCount++;
+    }
+  });
+  progressEl.textContent = `${correctCount} benar dari ${cards.length}`;
+}
 
 /* ---------- Drag & drop (Pointer Events) ---------- */
 function enableDrag(){
@@ -212,6 +250,9 @@ function enableDrag(){
       dragging = true;
       card.setPointerCapture(e.pointerId);
       e.preventDefault();
+
+      // Jika sebelumnya sudah di-Check, geser kartu akan menghapus warna/feedback
+      if (checked) clearFeedback();
     };
 
     const move = (e)=>{
@@ -224,7 +265,7 @@ function enableDrag(){
       if(!dragging) return;
       dragging = false;
       try{ card.releasePointerCapture(e.pointerId);}catch(_){}
-      // find best zone overlap
+      // cari zona overlap terbaik
       const zones = [...document.querySelectorAll(".zone")];
       const cRect = card.getBoundingClientRect();
       let best=null, bestArea=0;
@@ -246,15 +287,8 @@ function enableDrag(){
       if(best && bestArea>200){ best.appendChild(card); }
       else{ originParent.appendChild(card); }
 
-      // auto-check coloring (without message)
-      updateColors(false);
-      updateProgress();
-      // if all correct -> enable next & show explain
-      if(allPlaced() && allCorrect()){
-        statusEl.textContent = "Bagus! Semua benar 🚀";
-        btnNext.disabled = false;
-        explainEl.style.display = "block";
-      }
+      // ❌ Tidak ada pewarnaan otomatis saat drag
+      // (warna hanya saat tombol Check ditekan)
     };
 
     card.addEventListener("pointerdown", down);
@@ -265,50 +299,26 @@ function enableDrag(){
   });
 }
 
-function updateColors(showMsg){
-  const cards = [...document.querySelectorAll(".card")];
-  cards.forEach(c=>{
-    c.classList.remove("ok","bad");
-    const parent = c.parentElement;
-    if(parent.classList.contains("zone")){
-      const correct = c.dataset.key === parent.dataset.key;
-      c.classList.add(correct ? "ok" : "bad");
-    }
-  });
-  if(showMsg){
-    if(allPlaced() && allCorrect()){
-      statusEl.textContent = "Semua benar! Lanjut ke Next Level.";
-      btnNext.disabled = false;
-      explainEl.style.display = "block";
-    }else if(allPlaced()){
-      statusEl.textContent = "Masih ada yang salah (merah). Coba perbaiki!";
-    }else{
-      statusEl.textContent = "Ada kartu yang belum ditempatkan.";
-    }
-  }
-}
-function allPlaced(){
-  return [...document.querySelectorAll(".card")].every(c=> c.parentElement && !c.parentElement.classList.contains("pool"));
-}
-function allCorrect(){
-  return [...document.querySelectorAll(".card")].every(c=>{
-    const p=c.parentElement; return p.classList.contains("zone") && c.dataset.key===p.dataset.key;
-  });
-}
-function updateProgress(){
-  const total = document.querySelectorAll(".card").length;
-  const ok = document.querySelectorAll(".card.ok").length;
-  progressEl.textContent = `${ok} benar dari ${total}`;
-}
-
 /* ---------- Buttons ---------- */
 document.getElementById("check").addEventListener("click", ()=>{
-  updateColors(true);
-  updateProgress();
+  checked = true;
+  applyCheckColors();
+
+  if(allPlaced() && allCorrect()){
+    statusEl.textContent = "Semua benar! Lanjut ke Next Level.";
+    btnNext.disabled = false;
+    explainEl.style.display = "block";
+  }else if(allPlaced()){
+    statusEl.textContent = "Masih ada yang salah (merah). Perbaiki lalu tekan Check lagi.";
+  }else{
+    statusEl.textContent = "Ada kartu yang belum ditempatkan. Lengkapi lalu tekan Check.";
+  }
 });
+
 document.getElementById("reset").addEventListener("click", ()=>{
   renderLevel(levelIndex);
 });
+
 document.getElementById("next").addEventListener("click", ()=>{
   if(levelIndex < levels.length-1){
     levelIndex++;
