@@ -31,7 +31,8 @@
   .pool{border:2px dashed #bbb;border-radius:12px;padding:10px;min-height:120px;display:flex;flex-wrap:wrap;gap:8px}
   .card{
     background:var(--card);border:2px solid var(--box);border-radius:10px;padding:10px;max-width:320px;
-    box-shadow:0 1px 0 rgba(0,0,0,.06);font-size:14px;line-height:1.25;touch-action:none;user-select:none
+    box-shadow:0 1px 0 rgba(0,0,0,.06);font-size:14px;line-height:1.25;touch-action:none;user-select:none;
+    transition: border-color .25s ease; /* transisi halus */
   }
   .card.ok{border-color:var(--ok)}
   .card.bad{border-color:var(--bad)}
@@ -40,7 +41,6 @@
   .side h4{margin:0 0 8px 0}
   .help{font-size:13px;color:var(--muted)}
   .explain{margin-top:10px;font-size:14px;border-top:1px dashed #ccc;padding-top:10px;display:none}
-  /* Modal Leaderboard */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:16px;z-index:1000}
   .modal .box{background:#fff;border:2px solid var(--box);border-radius:14px;max-width:760px;width:100%;padding:16px}
   .modal h3{margin:0 0 8px 0}
@@ -89,14 +89,12 @@
     <div id="lbYourTime" style="margin-bottom:6px;font-weight:700"></div>
     <div id="lbErr" class="err" style="display:none"></div>
 
-    <!-- Leaderboard untuk level saat ini -->
     <div class="secTitle" id="secLevelTitle">Peringkat Level Ini</div>
     <table class="lb" id="lbTableLevel">
       <thead><tr><th>#</th><th>Nama</th><th>Waktu</th><th>Tanggal</th></tr></thead>
       <tbody></tbody>
     </table>
 
-    <!-- Leaderboard total 3 level (muncul saat selesai level 3) -->
     <div id="totalSection" style="display:none">
       <div class="secTitle">Leaderboard Total 3 Level</div>
       <div id="lbYourTotal" style="margin-bottom:6px;font-weight:700"></div>
@@ -220,7 +218,8 @@ let levelIndex = 0;
 let checked = false;          // warna hanya setelah Check
 let levelStart = null;        // timestamp ms
 let timerId = null;
-const timesMs = [null,null,null]; // simpan waktu tiap level
+const timesMs = [null,null,null]; // waktu tiap level
+let feedbackTimer = null;     // timer menghilangkan warna otomatis
 
 function fmtTime(ms){ const s=Math.floor(ms/1000); const m=Math.floor(s/60); const r=s%60; return `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`; }
 function startTimerIfNeeded(){
@@ -230,6 +229,7 @@ function startTimerIfNeeded(){
   }
 }
 function stopTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } }
+function cancelFeedbackTimer(){ if(feedbackTimer){ clearTimeout(feedbackTimer); feedbackTimer=null; } }
 
 function renderLevel(idx){
   const L = levels[idx];
@@ -260,12 +260,12 @@ function renderLevel(idx){
   levelStart = null; timerEl.textContent = "00:00"; stopTimer();
   enableDrag();
 }
-renderLevel(levelIndex);
 
 /* =================== Helpers (cek & feedback) =================== */
 function clearVisualMarks(){ document.querySelectorAll(".card").forEach(c=> c.classList.remove("ok","bad")); }
 function clearFeedback(){
   checked = false;
+  cancelFeedbackTimer();      // matikan timer hilang warna jika ada
   clearVisualMarks();
   progressEl.textContent = "Belum dicek";
   statusEl.textContent = "Seret kartu ke kategori yang tepat, lalu tekan Check.";
@@ -291,6 +291,13 @@ function applyCheckColors(){
     }
   });
   progressEl.textContent = `${correctCount} benar dari ${cards.length}`;
+
+  // Hilangkan warna otomatis setelah 1 detik
+  cancelFeedbackTimer();
+  feedbackTimer = setTimeout(()=>{
+    clearVisualMarks();
+    feedbackTimer = null;
+  }, 1000);
 }
 
 /* =================== Drag & drop =================== */
@@ -315,6 +322,7 @@ function enableDrag(){
       card.setPointerCapture(e.pointerId);
       e.preventDefault();
 
+      // Jika sudah di-Check lalu user geser kartu, hapus feedback & timer warna
       if (checked) clearFeedback();
     };
 
@@ -411,10 +419,6 @@ function fillTotalTable(rows){
   });
 }
 
-/* Modal render:
-   - Selalu tampilkan leaderboard level saat ini
-   - Jika showTotal=true (selesai level 3), tampilkan juga leaderboard total
-*/
 async function showLeaderboardModal({levelIdx, yourLevelMs, showTotal=false, yourTotalMs=null}){
   lbTitle.textContent = `Leaderboard – ${levels[levelIdx].title}`;
   secLevelTitle.textContent = "Peringkat Level Ini";
@@ -465,25 +469,16 @@ btnCheck.addEventListener("click", async ()=>{
     timesMs[levelIndex] = timeMs;
 
     try{
-      // simpan skor level ini
       await submitScore(levelIndex, nameInput.value, timeMs);
 
-      // Jika ini level terakhir, hitung total & simpan + tampilkan leaderboard total
       if(levelIndex === levels.length - 1){
         const totalMs = timesMs.reduce((a,b)=> a + (b||0), 0);
-        try{
-          await submitTotalScore(nameInput.value, totalMs);
-        }catch(err){
-          // lanjut walau gagal simpan total
-          console.warn("Gagal simpan total:", err.message);
-        }
+        try{ await submitTotalScore(nameInput.value, totalMs); }catch(err){ console.warn("Gagal simpan total:", err.message); }
         await showLeaderboardModal({levelIdx, yourLevelMs: timeMs, showTotal:true, yourTotalMs: totalMs});
       }else{
-        // tampilkan leaderboard level saja
         await showLeaderboardModal({levelIdx, yourLevelMs: timeMs, showTotal:false});
       }
     }catch(err){
-      // tetap tampilkan modal meski insert gagal
       await showLeaderboardModal({levelIdx, yourLevelMs: timeMs, showTotal: levelIndex===levels.length-1, yourTotalMs: timesMs.reduce((a,b)=>a+(b||0),0)});
       lbErr.textContent = "Skor tidak tersimpan: " + err.message;
       lbErr.style.display = "block";
@@ -495,9 +490,7 @@ btnCheck.addEventListener("click", async ()=>{
   }
 });
 
-btnReset.addEventListener("click", ()=>{
-  renderLevel(levelIndex);
-});
+btnReset.addEventListener("click", ()=>{ renderLevel(levelIndex); });
 btnNext.addEventListener("click", ()=>{
   if(levelIndex < levels.length-1){
     levelIndex++;
@@ -518,6 +511,9 @@ lbNext.addEventListener("click", ()=>{
     btnNext.disabled = true;
   }
 });
+
+/* Init render */
+renderLevel(levelIndex);
 </script>
 </body>
 </html>
