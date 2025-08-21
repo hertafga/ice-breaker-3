@@ -1,22 +1,23 @@
 <!doctype html>
 <html lang="id">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DataQuest – Puzzle Analitika Data</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DataQuest – Puzzle Analitika Data (Global Leaderboard)</title>
 <style>
   :root{--ink:#111;--muted:#666;--bg:#fff;--ok:#2aa866;--bad:#d43d3d;--box:#222;--card:#fff;}
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-  header{display:flex;gap:10px;justify-content:flex-end;padding:12px}
+  header{display:flex;gap:10px;justify-content:flex-end;align-items:center;padding:12px;flex-wrap:wrap}
   button{padding:.6rem .9rem;border:2px solid var(--box);border-radius:12px;background:#eee;font-weight:700;cursor:pointer}
   #check{background:#e9f6ea;border-color:#7dbc7d}
   #reset{background:#fdeaea;border-color:#f18a8a}
   #next{background:#e8f1ff;border-color:#8bb4ff}
+  #name{padding:.5rem .7rem;border:2px solid var(--box);border-radius:10px;font-weight:600;min-width:180px}
   .wrap{max-width:1100px;margin:0 auto;padding:10px 16px 32px}
   h1{font-size:22px;margin:6px 0 6px}
   .subtitle{color:var(--muted);font-size:14px;margin-bottom:8px}
-  .hud{display:flex;gap:10px;align-items:center;margin:6px 0 12px}
+  .hud{display:flex;gap:10px;align-items:center;margin:6px 0 12px;flex-wrap:wrap}
   .pill{font-size:12px;padding:4px 8px;border:1px solid #ddd;border-radius:999px;background:#fafafa}
   .board{display:grid;grid-template-columns: 1fr 320px;gap:16px;align-items:start}
   @media (max-width:950px){ .board{grid-template-columns:1fr } }
@@ -43,12 +44,25 @@
   .side h4{margin:0 0 8px 0}
   .help{font-size:13px;color:var(--muted)}
   .explain{margin-top:10px;font-size:14px;border-top:1px dashed #ccc;padding-top:10px;display:none}
-  /* Drag surface */
-  #game{position:relative}
+  /* Modal Leaderboard */
+  .modal{
+    position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:16px;z-index:1000
+  }
+  .modal .box{
+    background:#fff;border:2px solid var(--box);border-radius:14px;max-width:560px;width:100%;padding:16px
+  }
+  .modal h3{margin:0 0 8px 0}
+  table.lb{width:100%;border-collapse:collapse;margin-top:8px}
+  table.lb th, table.lb td{border:1px solid #ddd;padding:8px 10px;text-align:left}
+  table.lb th{background:#fafafa}
+  .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+  .dim{opacity:.6;pointer-events:none}
+  .err{color:var(--bad);font-weight:700}
 </style>
 </head>
 <body>
 <header>
+  <input id="name" type="text" placeholder="Nama pemain…" maxlength="30" />
   <button id="reset">Reset</button>
   <button id="check">Check</button>
   <button id="next" disabled>Next Level ▶</button>
@@ -61,6 +75,7 @@
   <div class="hud">
     <span class="pill" id="progress">Belum dicek</span>
     <span class="pill" id="status">Seret kartu ke kategori yang tepat, lalu tekan Check.</span>
+    <span class="pill" id="timer">00:00</span>
   </div>
 
   <div class="board" id="game">
@@ -74,8 +89,36 @@
   </div>
 </div>
 
-<script>
-/* ---------- Level data ---------- */
+<!-- Modal Leaderboard -->
+<div class="modal" id="lbModal" role="dialog" aria-modal="true" aria-labelledby="lbTitle">
+  <div class="box">
+    <h3 id="lbTitle">Leaderboard</h3>
+    <div id="lbYourTime" style="margin-bottom:6px;font-weight:700"></div>
+    <div id="lbErr" class="err" style="display:none"></div>
+    <table class="lb" id="lbTable">
+      <thead><tr><th>#</th><th>Nama</th><th>Waktu</th><th>Tanggal</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="actions">
+      <button id="lbClose">Tutup</button>
+      <button id="lbNext">Next Level ▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- Supabase + Game logic -->
+<script type="module">
+/* =================== Supabase Client =================== */
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+/* >>>>>> GANTI DUA BARIS INI DENGAN PUNYAMU <<<<<< */
+const SUPABASE_URL = "https://wryiwcuthjkxqouepxmm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyeWl3Y3V0aGpreHFvdWVweG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU3NTA4NTMsImV4cCI6MjA3MTMyNjg1M30.VgqL7Mzou9Irxi8zJDnkBCrDbUAmRJCjsVBkQTs6Z30";
+/* >>>>>> -------------------------------------- <<<<<< */
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* =================== Level data =================== */
 const levels = [
   {
     title: "Level 1 — Data → Informasi → Pengetahuan → Kebijakan",
@@ -147,7 +190,7 @@ const levels = [
   }
 ];
 
-/* ---------- Render UI ---------- */
+/* =================== Render & state =================== */
 const zonesEl = document.getElementById("zones");
 const poolEl  = document.getElementById("pool");
 const titleEl = document.getElementById("levelTitle");
@@ -157,9 +200,36 @@ const progressEl = document.getElementById("progress");
 const btnCheck = document.getElementById("check");
 const btnReset = document.getElementById("reset");
 const btnNext  = document.getElementById("next");
+const nameInput = document.getElementById("name");
+const timerEl = document.getElementById("timer");
+
+/* Leaderboard modal elements */
+const lbModal = document.getElementById("lbModal");
+const lbTitle = document.getElementById("lbTitle");
+const lbYourTime = document.getElementById("lbYourTime");
+const lbTableBody = document.getElementById("lbTable").querySelector("tbody");
+const lbClose = document.getElementById("lbClose");
+const lbNext = document.getElementById("lbNext");
+const lbErr = document.getElementById("lbErr");
 
 let levelIndex = 0;
-let checked = false; // <- hanya warna saat sudah ditekan Check
+let checked = false; // warna hanya setelah Check
+let levelStart = null; // timestamp ms
+let timerId = null;
+
+function fmtTime(ms){
+  const s = Math.floor(ms/1000);
+  const m = Math.floor(s/60);
+  const r = s%60;
+  return `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`;
+}
+function startTimerIfNeeded(){
+  if(levelStart===null){
+    levelStart = Date.now();
+    timerId = setInterval(()=>{ timerEl.textContent = fmtTime(Date.now()-levelStart); }, 250);
+  }
+}
+function stopTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } }
 
 function renderLevel(idx){
   const L = levels[idx];
@@ -169,7 +239,6 @@ function renderLevel(idx){
   explainEl.style.display = "none";
   explainEl.innerHTML = L.explain;
 
-  // Zones
   L.categories.forEach(cat=>{
     const z = document.createElement("div");
     z.className = "zone"; z.dataset.key = cat.key;
@@ -177,7 +246,6 @@ function renderLevel(idx){
     zonesEl.appendChild(z);
   });
 
-  // Shuffle cards
   const cards = [...L.cards].sort(()=>Math.random()-0.5);
   cards.forEach(c=>{
     const el = document.createElement("div");
@@ -188,15 +256,14 @@ function renderLevel(idx){
   });
 
   btnNext.disabled = true;
-  clearFeedback();    // reset status/progress & hapus warna
+  clearFeedback();
+  levelStart = null; timerEl.textContent = "00:00"; stopTimer();
   enableDrag();
 }
 renderLevel(levelIndex);
 
-/* ---------- Helpers (cek & feedback) ---------- */
-function clearVisualMarks(){
-  document.querySelectorAll(".card").forEach(c=> c.classList.remove("ok","bad"));
-}
+/* =================== Helpers (cek & feedback) =================== */
+function clearVisualMarks(){ document.querySelectorAll(".card").forEach(c=> c.classList.remove("ok","bad")); }
 function clearFeedback(){
   checked = false;
   clearVisualMarks();
@@ -205,7 +272,6 @@ function clearFeedback(){
   explainEl.style.display = "none";
   btnNext.disabled = true;
 }
-
 function allPlaced(){
   return [...document.querySelectorAll(".card")].every(c=> c.parentElement && !c.parentElement.classList.contains("pool"));
 }
@@ -215,7 +281,7 @@ function allCorrect(){
   });
 }
 function applyCheckColors(){
-  clearVisualMarks(); // bersihkan dulu
+  clearVisualMarks();
   const cards = [...document.querySelectorAll(".card")];
   let correctCount = 0;
   cards.forEach(c=>{
@@ -229,15 +295,15 @@ function applyCheckColors(){
   progressEl.textContent = `${correctCount} benar dari ${cards.length}`;
 }
 
-/* ---------- Drag & drop (Pointer Events) ---------- */
+/* =================== Drag & drop =================== */
 function enableDrag(){
   const cards = [...document.querySelectorAll(".card")];
   cards.forEach(card=>{
-    let startX=0, startY=0, offX=0, offY=0, dragging=false, originParent=null;
+    let offX=0, offY=0, dragging=false, originParent=null;
 
     const down = (e)=>{
+      startTimerIfNeeded();
       const r = card.getBoundingClientRect();
-      startX = e.clientX; startY = e.clientY;
       offX = e.clientX - r.left; offY = e.clientY - r.top;
       originParent = card.parentElement;
 
@@ -251,7 +317,6 @@ function enableDrag(){
       card.setPointerCapture(e.pointerId);
       e.preventDefault();
 
-      // Jika sebelumnya sudah di-Check, geser kartu akan menghapus warna/feedback
       if (checked) clearFeedback();
     };
 
@@ -265,7 +330,6 @@ function enableDrag(){
       if(!dragging) return;
       dragging = false;
       try{ card.releasePointerCapture(e.pointerId);}catch(_){}
-      // cari zona overlap terbaik
       const zones = [...document.querySelectorAll(".zone")];
       const cRect = card.getBoundingClientRect();
       let best=null, bestArea=0;
@@ -279,16 +343,12 @@ function enableDrag(){
         if(area > bestArea){ bestArea=area; best=z; }
       });
 
-      // snap
       card.classList.remove("ghost");
       card.style.position = "relative";
       card.style.left = card.style.top = card.style.width = card.style.zIndex = "";
 
       if(best && bestArea>200){ best.appendChild(card); }
       else{ originParent.appendChild(card); }
-
-      // ❌ Tidak ada pewarnaan otomatis saat drag
-      // (warna hanya saat tombol Check ditekan)
     };
 
     card.addEventListener("pointerdown", down);
@@ -299,8 +359,65 @@ function enableDrag(){
   });
 }
 
-/* ---------- Buttons ---------- */
-document.getElementById("check").addEventListener("click", ()=>{
+/* =================== Supabase Leaderboard =================== */
+async function submitScore(levelIdx, name, timeMs){
+  const cleanName = (name || "Anon").trim().slice(0,30);
+  const { error } = await supabase
+    .from("dq_leaderboard")
+    .insert({ level_idx: levelIdx, name: cleanName, time_ms: timeMs });
+  if(error) throw error;
+}
+async function fetchLeaderboard(levelIdx, limit=10){
+  const { data, error } = await supabase
+    .from("dq_leaderboard")
+    .select("name,time_ms,created_at")
+    .eq("level_idx", levelIdx)
+    .order("time_ms", { ascending: true })
+    .limit(limit);
+  if(error) throw error;
+  return data || [];
+}
+function fillLeaderboardTable(rows){
+  lbTableBody.innerHTML = "";
+  rows.forEach((row, i)=>{
+    const tr = document.createElement("tr");
+    const c1 = document.createElement("td"); c1.textContent = String(i+1);
+    const c2 = document.createElement("td"); c2.textContent = row.name;
+    const c3 = document.createElement("td"); c3.textContent = fmtTime(row.time_ms);
+    const c4 = document.createElement("td"); c4.textContent = new Date(row.created_at).toLocaleDateString();
+    tr.append(c1,c2,c3,c4);
+    lbTableBody.appendChild(tr);
+  });
+}
+async function showLeaderboardModal(levelIdx, yourTimeMs){
+  lbTitle.textContent = `Leaderboard – ${levels[levelIdx].title}`;
+  lbYourTime.textContent = `Waktu kamu: ${fmtTime(yourTimeMs)}`;
+  lbErr.style.display = "none";
+  lbTableBody.innerHTML = "";
+  lbModal.style.display = "flex";
+
+  // loading state
+  lbModal.querySelector(".box").classList.add("dim");
+
+  try{
+    const rows = await fetchLeaderboard(levelIdx, 10);
+    fillLeaderboardTable(rows);
+  }catch(err){
+    lbErr.textContent = "Gagal memuat leaderboard: " + err.message;
+    lbErr.style.display = "block";
+  }finally{
+    lbModal.querySelector(".box").classList.remove("dim");
+  }
+}
+
+/* =================== Buttons =================== */
+btnCheck.addEventListener("click", async ()=>{
+  if(!nameInput.value.trim()){
+    nameInput.focus();
+    statusEl.textContent = "Isi nama dulu ya 🙂";
+    return;
+  }
+  startTimerIfNeeded();
   checked = true;
   applyCheckColors();
 
@@ -308,6 +425,20 @@ document.getElementById("check").addEventListener("click", ()=>{
     statusEl.textContent = "Semua benar! Lanjut ke Next Level.";
     btnNext.disabled = false;
     explainEl.style.display = "block";
+
+    stopTimer();
+    const timeMs = Date.now() - levelStart;
+
+    // simpan ke Supabase dan tampilkan modal leaderboard
+    try{
+      await submitScore(levelIndex, nameInput.value, timeMs);
+      await showLeaderboardModal(levelIndex, timeMs);
+    }catch(err){
+      // fallback: tampilkan modal dengan error
+      await showLeaderboardModal(levelIndex, timeMs);
+      lbErr.textContent = "Skor tidak tersimpan: " + err.message;
+      lbErr.style.display = "block";
+    }
   }else if(allPlaced()){
     statusEl.textContent = "Masih ada yang salah (merah). Perbaiki lalu tekan Check lagi.";
   }else{
@@ -315,11 +446,21 @@ document.getElementById("check").addEventListener("click", ()=>{
   }
 });
 
-document.getElementById("reset").addEventListener("click", ()=>{
-  renderLevel(levelIndex);
+btnReset.addEventListener("click", ()=>{ renderLevel(levelIndex); });
+
+btnNext.addEventListener("click", ()=>{
+  if(levelIndex < levels.length-1){
+    levelIndex++;
+    renderLevel(levelIndex);
+  }else{
+    statusEl.textContent = "🎉 Selesai! Kamu menuntaskan semua level.";
+    btnNext.disabled = true;
+  }
 });
 
-document.getElementById("next").addEventListener("click", ()=>{
+lbClose.addEventListener("click", ()=> lbModal.style.display = "none");
+lbNext.addEventListener("click", ()=>{
+  lbModal.style.display = "none";
   if(levelIndex < levels.length-1){
     levelIndex++;
     renderLevel(levelIndex);
